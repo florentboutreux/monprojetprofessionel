@@ -6,35 +6,75 @@
     <title>Cartographie des Compétences - France Travail</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <!-- Importation de PDF.js pour la lecture locale des CV -->
+    
+    <!-- PDF.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
-        // Configuration du worker PDF.js - Indispensable pour la performance et stabilité
+        // Configuration Robuste du Worker PDF.js
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
+
     <style>
-        body { font-family: 'Inter', marianne; background-color: #f0f4f8; }
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f0f4f8; }
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Animation pour le contenu de la modale */
         .modal-enter { animation: modalSlideIn 0.3s ease-out forwards; }
         @keyframes modalSlideIn {
             from { opacity: 0; transform: translateY(20px) scale(0.95); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        
+        /* Style pour le markdown simplifié généré */
+        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .prose li { margin-bottom: 0.5em; }
+        .prose h3 { font-weight: 700; font-size: 1.1em; margin-top: 1em; margin-bottom: 0.5em; }
+        .prose strong { color: #1e3a8a; }
+        
+        /* Indicateur discret de la clé API */
+        #apiStatusIndicator { transition: all 0.3s ease; }
+        #apiStatusIndicator.active { color: #16a34a; background-color: #dcfce7; border-color: #bbf7d0; }
+        #apiStatusIndicator.inactive { color: #ca8a04; background-color: #fef9c3; border-color: #fde047; }
     </style>
 </head>
-<body class="p-4 md:p-8 text-gray-800 relative">
+<body class="p-4 md:p-8 text-gray-800 relative min-h-screen">
+
+    <!-- Bouton Config API (Caché si clé hardcodée présente) -->
+    <div id="configButtonContainer" class="absolute top-4 right-4 z-40 hidden">
+        <button onclick="openApiKeyModal()" id="apiStatusIndicator" class="inactive flex items-center gap-2 px-3 py-2 rounded-full shadow-sm border text-xs font-medium transition cursor-pointer">
+            <svg id="keyIcon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            <span id="apiStatusText">Clé manquante</span>
+        </button>
+    </div>
 
     <div class="max-w-5xl mx-auto">
-        <header class="text-center mb-10">
+        <header class="text-center mb-10 pt-4">
             <div class="inline-block p-3 rounded-full bg-blue-100 mb-4">
                 <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
             </div>
             <h1 class="text-3xl md:text-4xl font-extrabold text-blue-900 mb-2">Cartographie des Compétences</h1>
             <p class="text-lg text-blue-600">Assistant d'analyse & Formation</p>
         </header>
+
+        <!-- Avertissement si pas de clé API -->
+        <div id="apiWarning" class="hidden max-w-2xl mx-auto mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-800 shadow-sm rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm">
+                        <span class="font-bold">Configuration requise.</span> 
+                        Pour que l'outil fonctionne, une clé API est nécessaire.
+                        <button onclick="openApiKeyModal()" class="underline font-semibold hover:text-yellow-900 ml-1">Configurer maintenant</button>
+                    </p>
+                </div>
+            </div>
+        </div>
 
         <!-- Formulaire de Saisie -->
         <div class="bg-white p-6 md:p-8 rounded-xl shadow-xl border border-blue-100 mb-8">
@@ -71,7 +111,7 @@
 
                     <textarea id="pastJobs" rows="8" placeholder="Saisissez vos expériences ou importez votre CV pour remplir ce champ automatiquement..."
                         class="w-full p-4 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-inner resize-none"></textarea>
-                    <p class="text-xs text-gray-500 mt-1 text-right">Le contenu du CV sera ajouté et nettoyé ci-dessus.</p>
+                    <p class="text-xs text-gray-500 mt-1 text-right">Le contenu du CV sera ajouté ci-dessus.</p>
                 </div>
 
                 <!-- Bouton d'Analyse -->
@@ -94,7 +134,7 @@
             <!-- Les résultats seront injectés ici par JS -->
         </div>
 
-        <!-- Section "Pour aller plus loin" (Initialement masquée) -->
+        <!-- Section "Pour aller plus loin" -->
         <div id="furtherActions" class="hidden max-w-5xl mx-auto mt-8 mb-12 fade-in">
             <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                 <span class="bg-indigo-600 w-8 h-8 rounded-full text-white flex items-center justify-center text-sm mr-3">3</span>
@@ -105,7 +145,7 @@
                 <!-- Bouton Suggestions CV -->
                 <div class="bg-white p-6 rounded-xl shadow-md border border-indigo-100 flex flex-col">
                     <h4 class="font-bold text-lg text-indigo-900 mb-2">Optimisation du CV</h4>
-                    <p class="text-gray-600 text-sm mb-4 flex-grow">Obtenez des suggestions concrètes pour adapter le CV actuel au poste visé (mots-clés, mise en avant).</p>
+                    <p class="text-gray-600 text-sm mb-4 flex-grow">Obtenez des suggestions concrètes pour adapter le CV actuel au poste visé.</p>
                     <button id="btnCvAdvice" onclick="getAdvice('cv')" disabled
                         class="w-full py-3 bg-indigo-50 text-indigo-600 font-semibold rounded-lg hover:bg-indigo-100 transition border border-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400">
                         Améliorer mon CV
@@ -116,7 +156,7 @@
                 <!-- Bouton Arguments Entretien -->
                 <div class="bg-white p-6 rounded-xl shadow-md border border-teal-100 flex flex-col">
                     <h4 class="font-bold text-lg text-teal-900 mb-2">Préparation à l'entretien</h4>
-                    <p class="text-gray-600 text-sm mb-4 flex-grow">Générez les arguments clés pour convaincre le recruteur que votre profil correspond au poste.</p>
+                    <p class="text-gray-600 text-sm mb-4 flex-grow">Générez les arguments clés pour convaincre le recruteur.</p>
                     <button onclick="getAdvice('interview')"
                         class="w-full py-3 bg-teal-50 text-teal-600 font-semibold rounded-lg hover:bg-teal-100 transition border border-teal-200">
                         Générer mes Arguments
@@ -124,7 +164,7 @@
                 </div>
             </div>
 
-            <!-- Zone d'affichage des conseils supplémentaires (Inline) -->
+            <!-- Zone d'affichage des conseils supplémentaires -->
             <div id="extraContentArea" class="hidden mt-6 bg-white p-6 rounded-xl shadow-lg border-2 border-dashed border-gray-300">
                 <div id="extraContentSpinner" class="hidden flex justify-center py-4">
                     <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -137,37 +177,23 @@
 
     <!-- MODALE DE ZOOM (DETAIL) -->
     <div id="zoomModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <!-- Fond sombre -->
         <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeZoom()"></div>
-
-            <!-- Contenu de la modale -->
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             <div class="relative inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full modal-enter">
-                
-                <!-- En-tête Modale -->
                 <div id="zoomHeader" class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                     <h3 class="text-xl font-bold text-gray-900" id="modal-title">Détails</h3>
                     <button type="button" onclick="closeZoom()" class="text-gray-400 hover:text-gray-500 focus:outline-none">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
-
-                <!-- Corps Modale -->
                 <div class="px-6 py-6 max-h-[70vh] overflow-y-auto">
-                    <!-- Spinner de chargement Zoom -->
                     <div id="zoomSpinner" class="flex flex-col items-center justify-center py-10">
                         <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                         <p class="text-gray-500">Génération des détails approfondis en cours...</p>
                     </div>
-                    
-                    <!-- Contenu texte Zoom -->
-                    <div id="zoomContent" class="prose max-w-none text-gray-700 hidden">
-                        <!-- Injecté par JS -->
-                    </div>
+                    <div id="zoomContent" class="prose max-w-none text-gray-700 hidden"></div>
                 </div>
-
-                <!-- Pied de page Modale -->
                 <div class="bg-gray-50 px-6 py-3 sm:flex sm:flex-row-reverse">
                     <button type="button" onclick="closeZoom()" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
                         Fermer
@@ -177,22 +203,147 @@
         </div>
     </div>
 
+    <!-- MODALE API KEY -->
+    <div id="apiKeyModal" class="hidden fixed inset-0 z-50 overflow-y-auto" role="dialog">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-black bg-opacity-50" onclick="closeApiKeyModal()"></div>
+            <div class="relative bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">Configuration API</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Pour que cet outil fonctionne en ligne, il a besoin d'une clé API Gemini.
+                    <br><br>
+                    <strong>Option 1 (Utilisateur) :</strong> Entrez une clé ci-dessous. Elle sera sauvegardée dans votre navigateur uniquement.
+                    <br>
+                    <strong>Option 2 (Développeur) :</strong> Pour ne pas demander cela à vos utilisateurs, éditez le fichier <code>index.html</code> et collez votre clé dans la variable <code>HARDCODED_API_KEY</code>.
+                </p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Clé API</label>
+                    <input type="password" id="apiKeyInput" placeholder="Collez votre clé ici..." 
+                        class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button onclick="closeApiKeyModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Fermer</button>
+                    <button onclick="saveApiKey()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Sauvegarder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Script Logique -->
     <script>
-        const API_KEY = ""; // La clé est gérée par l'environnement
+        // =================================================================
+        // ZONE DE CONFIGURATION (POUR DÉPLOIEMENT EN LIGNE)
+        // =================================================================
+        // Si vous voulez que l'outil fonctionne sans que l'utilisateur n'ait 
+        // à entrer de clé, collez VOTRE clé API Gemini entre les guillemets ci-dessous.
+        // ATTENTION : Cette clé sera visible dans le code source (HTML). 
+        // Il est recommandé de restreindre cette clé à votre domaine (HTTP Referrer) 
+        // depuis la console Google Cloud pour éviter les abus.
+        
+        const HARDCODED_API_KEY = "AIzaSyBK07GzjD9YdK-W2Xc13Ue7kfKY1YLpMlM"; 
+        
+        // =================================================================
+
+
+        // --- GESTION HYBRIDE DE LA CLÉ API ---
+        
+        // Clé système (injectée par l'environnement de chat - ne pas toucher)
+        const SYSTEM_API_KEY = ""; 
+        
         const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025';
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+        // Fonction pour récupérer la clé valide (Priorité : Système > Hardcodée > Utilisateur)
+        function getEffectiveApiKey() {
+            // 1. Clé système (Preview Canvas)
+            if (SYSTEM_API_KEY && SYSTEM_API_KEY.length > 0 && SYSTEM_API_KEY !== '""') return SYSTEM_API_KEY;
+            
+            // 2. Clé hardcodée par le développeur (Pour le site en ligne)
+            if (HARDCODED_API_KEY && HARDCODED_API_KEY.length > 0) return HARDCODED_API_KEY;
+
+            // 3. Clé entrée par l'utilisateur (LocalStorage)
+            return localStorage.getItem('gemini_api_key') || "";
+        }
+
+        function getApiUrl() {
+            return `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${getEffectiveApiKey()}`;
+        }
+        
+        // Initialisation de l'état
+        document.addEventListener('DOMContentLoaded', () => {
+            updateApiStatusUI();
+        });
+
+        function updateApiStatusUI() {
+            const key = getEffectiveApiKey();
+            const btnContainer = document.getElementById('configButtonContainer');
+            const indicator = document.getElementById('apiStatusIndicator');
+            const statusText = document.getElementById('apiStatusText');
+            const warningBox = document.getElementById('apiWarning');
+
+            // Si une clé est hardcodée ou système, on cache le bouton de config pour l'utilisateur final
+            // car tout fonctionne de manière transparente pour lui.
+            if ((HARDCODED_API_KEY && HARDCODED_API_KEY.length > 0) || (SYSTEM_API_KEY && SYSTEM_API_KEY.length > 0)) {
+                btnContainer.classList.add('hidden');
+                warningBox.classList.add('hidden');
+                return;
+            }
+
+            // Sinon (mode BYOK - Bring Your Own Key), on affiche le bouton
+            btnContainer.classList.remove('hidden');
+
+            if (key) {
+                indicator.classList.remove('inactive');
+                indicator.classList.add('active');
+                statusText.textContent = "API Connectée";
+                warningBox.classList.add('hidden');
+            } else {
+                indicator.classList.remove('active');
+                indicator.classList.add('inactive');
+                statusText.textContent = "Clé manquante";
+                warningBox.classList.remove('hidden');
+            }
+        }
+
+        // --- GESTION MODALE API ---
+        function openApiKeyModal() {
+            document.getElementById('apiKeyModal').classList.remove('hidden');
+            document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_api_key') || "";
+        }
+
+        function closeApiKeyModal() {
+            document.getElementById('apiKeyModal').classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const val = document.getElementById('apiKeyInput').value.trim();
+            if (val) {
+                localStorage.setItem('gemini_api_key', val);
+                updateApiStatusUI();
+                closeApiKeyModal();
+            } else {
+                localStorage.removeItem('gemini_api_key');
+                updateApiStatusUI();
+                closeApiKeyModal();
+            }
+        }
 
         // Marqueur interne pour détecter l'import CV
         const CV_MARKER = "--- CONTENU CV (Restructuré par IA) ---";
 
-        // --- GESTION UPLOAD CV (PDF) - AVEC NETTOYAGE IA ---
+        // --- GESTION UPLOAD CV (PDF) ---
         async function handleCvUpload(input) {
             const file = input.files[0];
             if (!file) return;
 
             if (file.type !== 'application/pdf') {
                 alert("Veuillez sélectionner un fichier PDF valide.");
+                return;
+            }
+
+            // Vérif API Key avant
+            if (!getEffectiveApiKey()) {
+                openApiKeyModal();
+                input.value = '';
                 return;
             }
 
@@ -237,7 +388,6 @@
                 // 2. Nettoyage par IA
                 loadingText.textContent = "IA : Restructuration et nettoyage du CV...";
                 
-                // Appel à une fonction dédiée qui utilise l'API pour reformater
                 let finalText = "";
                 try {
                     finalText = await cleanCvWithAI(fullText);
@@ -248,7 +398,6 @@
 
                 // 3. Mise à jour de l'interface
                 const currentVal = textarea.value.trim();
-                // On garde ce que l'utilisateur avait peut-être déjà tapé avant l'import
                 const cleanVal = currentVal.split(CV_MARKER)[0].trim();
                 textarea.value = (cleanVal ? cleanVal + "\n\n" : "") + CV_MARKER + "\n\n" + finalText;
                 
@@ -268,32 +417,25 @@
             }
         }
 
-        // Nouvelle fonction pour nettoyer le texte brut du CV via l'API
         async function cleanCvWithAI(rawText) {
-            // On tronque le texte brut s'il est trop long pour l'appel API de nettoyage
             const safeRawText = rawText.substring(0, 12000);
             
             const prompt = `
-            Tu es un assistant administratif. Voici le texte brut extrait d'un fichier PDF de CV, qui est probablement désordonné (sauts de ligne, headers mélangés) :
+            Tu es un assistant administratif. Voici le texte brut extrait d'un fichier PDF de CV :
+            """${safeRawText}"""
             
-            """
-            ${safeRawText}
-            """
-            
-            TACHE : Réécris ce contenu proprement pour qu'il soit lisible dans un champ texte simple.
-            1. Identifie et liste les expériences professionnelles (Poste, Entreprise, Dates, Missions).
-            2. Identifie les formations principales.
-            3. Supprime le texte inutile (numéros de page, mentions légales, bas de page).
-            4. Utilise un formatage simple avec des tirets (-). Pas de Markdown complexe (pas de gras, pas d'italique).
-            
-            Réponds uniquement avec le texte nettoyé.
-            `;
+            TACHE : Réécris ce contenu proprement.
+            1. Liste les expériences professionnelles (Poste, Entreprise, Dates, Missions).
+            2. Liste les formations.
+            3. Supprime le texte inutile.
+            4. Utilise un formatage simple avec des tirets (-).
+            Réponds uniquement avec le texte nettoyé.`;
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }]
             };
 
-            const response = await fetch(API_URL, {
+            const response = await fetch(getApiUrl(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -314,7 +456,6 @@
             const btnCv = document.getElementById('btnCvAdvice');
             const cvBadge = document.getElementById('cvBadge');
             
-            // On vérifie la présence du marqueur (ou d'un texte significatif si le marqueur a été effacé)
             if (content.includes("CONTENU CV") || content.length > 50) {
                 btnCv.disabled = false;
                 btnCv.classList.remove('bg-gray-100', 'text-gray-400');
@@ -343,10 +484,15 @@
             "skillsGap": ["Compétence manquante 1", "Compétence manquante 2"],
             "besoinsFormation": ["Suggestion de formation ou certification 1", "Suggestion 2"]
         }
-        Ne mets pas de texte avant ou après le JSON.
+        Ne mets pas de texte avant ou après le JSON. Pas de Markdown.
         `;
 
         async function startAnalysis() {
+            if (!getEffectiveApiKey()) {
+                openApiKeyModal();
+                return;
+            }
+
             const btn = document.getElementById('analyzeButton');
             const btnText = document.getElementById('btnText');
             const btnSpinner = document.getElementById('btnSpinner');
@@ -379,29 +525,29 @@
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
                     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                    // Force le format JSON pour éviter les erreurs de parsing
                     generationConfig: { responseMimeType: "application/json" }
                 };
 
-                const response = await fetch(API_URL, {
+                const response = await fetch(getApiUrl(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) throw new Error(`Erreur serveur (${response.status})`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`Erreur API (${response.status}): ${errorData.error?.message || response.statusText}`);
+                }
 
                 const data = await response.json();
                 const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
                 if (!rawText) throw new Error("Aucune réponse générée par l'IA.");
 
+                // Parsing Robuste (Nettoyage des balises Markdown ```json ... ```)
                 let cleanJson = rawText.trim();
-                const firstBrace = cleanJson.indexOf('{');
-                const lastBrace = cleanJson.lastIndexOf('}');
-                
-                if (firstBrace !== -1 && lastBrace !== -1) {
-                    cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
-                }
+                cleanJson = cleanJson.replace(/^```json\s*/g, '').replace(/^```\s*/g, '').replace(/\s*```$/g, '');
 
                 const resultObj = JSON.parse(cleanJson);
                 displayResults(resultObj);
@@ -411,7 +557,7 @@
 
             } catch (err) {
                 console.error(err);
-                errorMsg.textContent = "Une erreur est survenue : " + err.message + ". Veuillez réessayer.";
+                errorMsg.textContent = "Une erreur est survenue : " + err.message + ". Vérifiez votre clé API.";
                 errorMsg.classList.remove('hidden');
             } finally {
                 btn.disabled = false;
@@ -435,7 +581,6 @@
                 </ul>`;
             };
 
-            // Ajout des attributs onclick pour le zoom
             resultsArea.innerHTML = `
                 <div class="bg-white rounded-xl shadow-lg border border-blue-100 overflow-hidden">
                     <div class="bg-blue-600 p-4 text-white">
@@ -494,7 +639,7 @@
                         </div>
                     </div>
                      <div class="p-4 bg-gray-50 text-center text-xs text-gray-500 border-t">
-                        Document généré par l'assistant IA France Travail
+                        Document généré par l'assistant IA France Travail (POC)
                     </div>
                 </div>
             `;
@@ -518,6 +663,8 @@
             const targetJob = document.getElementById('targetJob').value.trim();
             const pastJobs = document.getElementById('pastJobs').value.trim();
 
+            if (!getEffectiveApiKey()) { openApiKeyModal(); return; }
+
             modal.classList.remove('hidden');
             spinner.classList.remove('hidden');
             content.classList.add('hidden');
@@ -526,7 +673,6 @@
             let titleText = "";
             let headerColor = "";
 
-            // Configuration selon la catégorie
             switch(category) {
                 case 'savoir_faire':
                     titleText = "🛠️ Analyse détaillée : Savoir-Faire Techniques";
@@ -575,12 +721,14 @@
                     contents: [{ parts: [{ text: prompt }] }],
                 };
 
-                const response = await fetch(API_URL, {
+                const response = await fetch(getApiUrl(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 
+                if (!response.ok) throw new Error("Erreur API");
+
                 const data = await response.json();
                 const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 let cleanHtml = rawText.replace(/```html/g, '').replace(/```/g, '');
@@ -591,7 +739,7 @@
 
             } catch (e) {
                 console.error(e);
-                content.innerHTML = `<p class="text-red-600 font-bold">Erreur lors de la récupération des détails. Veuillez vérifier votre connexion et réessayer.</p>`;
+                content.innerHTML = `<p class="text-red-600 font-bold">Erreur lors de la récupération des détails. Vérifiez votre clé API.</p>`;
                 spinner.classList.add('hidden');
                 content.classList.remove('hidden');
             }
@@ -599,6 +747,8 @@
 
         // --- FONCTIONS EXISTANTES "POUR ALLER PLUS LOIN" ---
         async function getAdvice(type) {
+            if (!getEffectiveApiKey()) { openApiKeyModal(); return; }
+
             const extraArea = document.getElementById('extraContentArea');
             const extraText = document.getElementById('extraContentText');
             const extraSpinner = document.getElementById('extraContentSpinner');
@@ -628,12 +778,14 @@
 
             try {
                 const payload = { contents: [{ parts: [{ text: prompt }] }] };
-                const response = await fetch(API_URL, {
+                const response = await fetch(getApiUrl(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 
+                if (!response.ok) throw new Error("Erreur API");
+
                 const data = await response.json();
                 const cleanHtml = data.candidates?.[0]?.content?.parts?.[0]?.text.replace(/```html/g, '').replace(/```/g, '');
 
@@ -642,12 +794,11 @@
                     <div class="space-y-4 text-gray-700 leading-relaxed">${cleanHtml}</div>
                 `;
             } catch (e) {
-                extraText.innerHTML = `<p class="text-red-600">Erreur.</p>`;
+                extraText.innerHTML = `<p class="text-red-600">Erreur lors de la génération. Vérifiez votre clé API.</p>`;
             } finally {
                 extraSpinner.classList.add('hidden');
             }
         }
     </script>
 </body>
-
 </html>
